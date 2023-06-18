@@ -1,28 +1,23 @@
 const fs = require("fs/promises");
 const path = require("path");
-const chalk = require("chalk");
+
 const dataValidator = require("./helpers/dataValidator");
 const checkExtension = require("./helpers/checkExtension");
 
-const createFile = async (fileName, content) => {
-  const file = {
-    fileName,
-    content,
-  };
-  const { error } = dataValidator(file);
+const createFile = async (req, res, next) => {
+  const { fileName, content } = req.body;
+  const { error } = dataValidator(req.body);
   if (error) {
-    console.log(
-      chalk.red(`please specify parameter ${error.details[0].context.label}`)
-    );
+    res.status(400).json({
+      message: `please specify parameter ${error.details[0].context.label}`,
+    });
     return;
   }
   const { extension, result } = checkExtension(fileName);
   if (!result) {
-    console.log(
-      chalk.red(
-        `sorry, this application does not support files with ${extension} extension`
-      )
-    );
+    res.status(400).json({
+      message: `sorry, this application does not support files with ${extension} extension`,
+    });
     return;
   }
   try {
@@ -31,30 +26,36 @@ const createFile = async (fileName, content) => {
       content,
       "utf-8"
     );
-    console.log(chalk.green("File was created successfully"));
+    res.status(201).json({ message: "File was created successfully" });
   } catch (error) {
+    res.status(500).json({ message: "Server error" });
     console.log(error);
   }
 };
 
-const getFiles = async () => {
+const getFiles = async (req, res, next) => {
   try {
     const data = await fs.readdir(path.join(__dirname, "./files"));
     if (data.length === 0) {
-      console.log(chalk.red("there are no files in this directory"));
+      res.status(404).json({ message: "there are no files in this directory" });
       return;
     }
-    console.log(data);
+    res.json(data);
   } catch (error) {
-    console.log(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-const getFile = async (fileName) => {
+const getFile = async (req, res, next) => {
   try {
     const data = await fs.readdir(path.join(__dirname, "./files"));
+
+    const { fileName } = req.params;
     if (!data.includes(fileName)) {
-      console.log(chalk.red(`file ${fileName} wasn't found in this directory`));
+      res
+        .status(404)
+        .json({ message: `file ${fileName} wasn't found in this directory` });
+      return;
     }
     const fileContent = await fs.readFile(
       path.join(__dirname, "./files", fileName),
@@ -70,9 +71,9 @@ const getFile = async (fileName) => {
       extension,
       content: fileContent,
     };
-    console.log(resultObj);
+    res.json(resultObj);
   } catch (error) {
-    console.log(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
